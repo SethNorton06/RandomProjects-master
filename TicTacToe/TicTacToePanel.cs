@@ -8,7 +8,8 @@ using System.Windows.Forms;
 
 namespace TicTacToe
 {
-    class TicTacToePanel : Panel
+    [Serializable]
+    public class TicTacToePanel : Panel
     {
         public char  CharacterInPanel { get; set; }
         public Color CharacterColor { get; set; }
@@ -30,12 +31,21 @@ namespace TicTacToe
             {
                 using (Graphics g = e.Graphics)
                 {
-                    Pen pe = new Pen(Color.Red);
-                    pe.Width = 8.0F;
-                    SolidBrush sb = new SolidBrush(Color.Red);
-                    g.DrawLine(pe, p.Location.X, p.Location.Y, p.Location.X + p.Width, p.Location.Y + p.Height);
-                    g.DrawEllipse(pe, new Rectangle(p.Location.X, p.Location.Y, p.Location.X + p.Width, p.Location.Y + p.Height));
-                    // g.DrawRectangle(pe, new Rectangle(new Point(50, 50), new Size(new Point(50, 50))));
+                    
+                    if (CharacterInPanel == 'X')
+                    {
+                        Pen pe = new Pen(Color.Red, 8);
+                        // Draw an X
+                        g.DrawLine(pe, 0, 0, 100, 100);
+                        g.DrawLine(pe, 100, 0, 0, 100);
+                    }
+                    else
+                    {
+                        Pen pe = new Pen(Color.Blue, 8);
+                        // Draw an O
+                        g.DrawEllipse(pe, new Rectangle(0, 0, 100, 100));
+                    }
+
 
                 }
             }               
