@@ -157,7 +157,6 @@ namespace TicTacToe
 
 
                 bool invalidSelection = true;
-
                 while (invalidSelection)
                 {
 
@@ -174,13 +173,15 @@ namespace TicTacToe
                         p.Invalidate();
                         p.Update();
 
-                        if (character == 'X')
+                        if (character == 'X' && !invalidSelection)
                             character = 'O';
-                        else
+                        else if(!invalidSelection)
                             character = 'X';
 
-                        if (multiplayer)
+                        if (multiplayer && !invalidSelection)
                             turn = false;
+
+                        invalidSelection = false;
                     }
                 }
 
@@ -195,21 +196,27 @@ namespace TicTacToe
                     Winning w = new Winning($"{winner} won the game");
                     this.Close();
                 }
-                if(multiplayer)
+                if(multiplayer && !turn)
                     SendMove(p.Location);
+                    
             }
             else
             {
-                ReceiveMove();
+                await ReceiveMove();
             }
             
         }
 
         private async void ReceiveMove()
         {
-            byte[] bytes = new byte[(sizeof(int) * 2) + sizeof(char)];
-            // IAsyncResult result = await networkSocket.BeginReceive(bytes, 0, (sizeof(int) * 2) + sizeof(char), ,);
-            // int bytesReceived = 
+            byte[] buffer = new byte[(sizeof(int) * 2) + sizeof(char)];
+            int bytesReceived;
+            while( (bytesReceived = networkSocket.Receive(buffer, 0, (sizeof(int) * 2) + sizeof(char), SocketFlags.None)) > 0)
+            {
+                byte[] actualBytesRead = new byte[bytesReceived];
+                Buffer.BlockCopy(buffer, 0, actualBytesRead, 0, bytesReceived);
+            }
+
         }
 
         private void SendMove(Point panelLocation)
