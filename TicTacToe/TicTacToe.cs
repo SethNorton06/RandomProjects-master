@@ -16,6 +16,8 @@ using System.Xml.Serialization;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Runtime.Serialization;
 
 namespace TicTacToe
 {
@@ -29,9 +31,11 @@ namespace TicTacToe
 
         TcpListener server;
         TcpClient client;
-        Socket networkSocket;
+        NetworkStream stream;
         EndPoint epLocal, epRemote;
+        MemoryStream MemoryStream = new MemoryStream();
         private BackgroundWorker MessageReceiver = new BackgroundWorker();
+        SocketAsyncEventArgs SEA = new SocketAsyncEventArgs();
         byte[] buffer;
 
 
@@ -54,7 +58,6 @@ namespace TicTacToe
             gameManager = new GameManager();
             this.multiplayer = multiplayer;
 
-            MessageReceiver.DoWork += MessageReceiver_DoWork;
             CheckForIllegalCrossThreadCalls = false;
 
             if (host)
@@ -63,38 +66,33 @@ namespace TicTacToe
             }
             else
             {
-                try
-                {
-                    client = new TcpClient(serverIp, 5732);
-                    networkSocket = client.Client;
-                    character = 'O';
-                    turn = false;
-                    MessageReceiver.RunWorkerAsync();
-                }
-                catch(Exception e)
-                {
-                    MessageBox.Show(e.Message);
-                    this.Close();
-                }
+                StartClient(serverIp);
+                
             }
-
-
         }
 
         private async void StartSocket()
         {
             server = new TcpListener(IPAddress.Any, 5732);
             server.Start();
-            networkSocket = await server.AcceptSocketAsync();  // accept the incoming connection
+            client = await server.AcceptTcpClientAsync();
+            stream = client.GetStream();
         }
 
-
-
-
-        private void MessageReceiver_DoWork(object sender, DoWorkEventArgs e)
+        private void StartClient(string serverIp)
         {
-            return;
-            // throw new NotImplementedException();
+            try
+            {
+                client = new TcpClient(serverIp, 5732);
+                stream = client.GetStream();
+                character = 'O';
+                turn = false;
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show(e.Message);
+                this.Close();
+            }
         }
 
         public void CreatePanels()
@@ -202,39 +200,39 @@ namespace TicTacToe
             }
             else
             {
-                await ReceiveMove();
+                ReceiveMove();
             }
             
         }
 
-        private async void ReceiveMove()
+        private void ReceiveMove()
         {
-            byte[] buffer = new byte[(sizeof(int) * 2) + sizeof(char)];
-            int bytesReceived;
-            while( (bytesReceived = networkSocket.Receive(buffer, 0, (sizeof(int) * 2) + sizeof(char), SocketFlags.None)) > 0)
-            {
-                byte[] actualBytesRead = new byte[bytesReceived];
-                Buffer.BlockCopy(buffer, 0, actualBytesRead, 0, bytesReceived);
-            }
+            //  byte[] buffer = new byte[(sizeof(int) * 2) + sizeof(char)];
 
+            //  stream.Read(buffer, 0, (sizeof(int) * 2) + sizeof(char));
+            stream = client.GetStream();
+            IFormatter formatter = new BinaryFormatter();
+            StreamData o = (StreamData) formatter.Deserialize(stream);
+            stream.Close();
+
+            return;
+            
         }
 
         private void SendMove(Point panelLocation)
         {
-            using (var MemoryStream = new MemoryStream())
-            {
-                BinaryFormatter formatter = new BinaryFormatter();
+            BinaryFormatter formatter = new BinaryFormatter();
 
-                // Send the indexes
-                formatter.Serialize(MemoryStream, panelLocation.X);
-                formatter.Serialize(MemoryStream, panelLocation.Y);
+            // Send the indexes
+            formatter.Serialize(MemoryStream, panelLocation.X);
+            formatter.Serialize(MemoryStream, panelLocation.Y);
 
-                // send the character
-                formatter.Serialize(MemoryStream, character);
-
-
-                networkSocket.Send(MemoryStream.GetBuffer(), (sizeof(int) * 2) + sizeof(char), SocketFlags.None);
-            }
+            // send the character
+            formatter.Serialize(MemoryStream, character);
+            stream = client.GetStream();
+            // SEA.SetBuffer(MemoryStream.GetBuffer(), 0, (sizeof(int) * 2) + sizeof(char));
+            stream.Write(MemoryStream.GetBuffer(), 0, (sizeof(int) * 2) + sizeof(char));
+            stream.Close();
         }
 
         public void CreateHorizontalLines(Rectangle r)
@@ -269,5 +267,11 @@ namespace TicTacToe
             Begin begin = new Begin();
             begin.Show();
         }
+    }
+    public class StreamData
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+        public char Character { get; set; }
     }
 }
